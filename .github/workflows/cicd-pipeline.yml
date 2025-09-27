@@ -1,0 +1,75 @@
+# Le nom de notre pipeline, qui apparaîtra dans l'onglet "Actions" de GitHub
+name: Build and Deploy RAG Agent to Kubernetes
+
+# Déclencheur : ce pipeline s'exécutera à chaque push sur la branche "main"
+on:
+  push:
+    branches: [ "main" ]
+
+# Variables d'environnement pour éviter la répétition
+env:
+  DOCKER_IMAGE_NAME: rag-agent # Nom de l'image Docker
+  
+jobs:
+  # --- JOB 1: Construire l'image Docker et la pousser sur le Registry ---
+  build-and-push:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-latest # Le job s'exécutera sur une machine virtuelle Ubuntu fournie par GitHub
+
+    steps:
+      # Étape 1: Récupérer le code de votre dépôt
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Étape 2: Se connecter à Docker Hub
+      # Utilise les secrets que nous allons configurer dans GitHub
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # Étape 3: Construire et pousser l'image Docker
+      # Le tag de l'image sera le hash du commit git, pour une traçabilité parfaite
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: . # Le contexte de build est la racine du projet
+          file: ./docker/Dockerfile # Chemin vers le Dockerfile
+          push: true # Pousser l'image après la construction
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE_NAME }}:${{ github.sha }}
+
+  # --- JOB 2: Déployer l'application sur Kubernetes ---
+  deploy:
+    name: Deploy to Kubernetes
+    needs: build-and-push # Ce job ne démarrera que si le job "build-and-push" a réussi
+    runs-on: ubuntu-latest
+
+    steps:
+      # Étape 1: Récupérer le code de votre dépôt
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Étape 2: Configurer le contexte kubectl
+      # Se connecte à votre cluster Kubernetes en utilisant le secret KUBE_CONFIG
+      - name: Set up kubectl context
+        uses: azure/k8s-set-context@v4
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.KUBE_CONFIG }}
+
+      # Étape 3: Mettre à jour le manifeste de déploiement
+      # Remplace le tag de l'image par le nouveau tag (le hash du commit)
+      - name: Update Kubernetes deployment manifest
+        run: |
+          sed -i 's|image:.*|image: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE_NAME }}:${{ github.sha }}|g' kubernetes/deployment.yaml
+
+      # Étape 4: Appliquer les manifestes sur le cluster
+      - name: Deploy to Kubernetes
+        run: |
+          kubectl apply -f kubernetes/
+      
+      # Étape 5: Vérifier le statut du déploiement
+      - name: Verify deployment
+        run: |
+          kubectl rollout status deployment/rag-agent-deployment

@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: rag-agent-service # Le nom de notre service
+spec:
+  type: ClusterIP # Expose le service uniquement à l'intérieur du cluster
+  selector:
+    app: rag-agent # Cible tous les Pods ayant le label "app: rag-agent"
+  ports:
+  - protocol: TCP
+    port: 80 # Le port sur lequel le service sera accessible
+    targetPort: 8000 # Redirige le trafic vers le port 8000 des Pods

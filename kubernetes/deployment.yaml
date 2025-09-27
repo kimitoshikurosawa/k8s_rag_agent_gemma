@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rag-agent-deployment # Le nom de notre déploiement
+spec:
+  replicas: 2 # Nous demandons à Kubernetes de faire tourner 2 instances (Pods) de notre application
+  selector:
+    matchLabels:
+      app: rag-agent # Ce label permet au Deployment de savoir quels Pods il doit gérer
+  template:
+    metadata:
+      labels:
+        app: rag-agent # Les Pods créés auront cette étiquette
+    spec:
+      containers:
+      - name: rag-agent-container
+        image: kimanamisago/rag-agent:latest
+        ports:
+        - containerPort: 8000 # Le port que notre application expose à l'intérieur du conteneur
+        resources:
+          requests:
+            memory: "1Gi" # Mémoire minimale demandée
+            cpu: "500m"   # CPU minimal demandé (0.5 CPU)
+          limits:
+            memory: "4Gi" # Mémoire maximale autorisée
+            cpu: "1"      # CPU maximal autorisé (1 CPU)
+        readinessProbe: # Vérifie si l'application est prête à recevoir du trafic
+          httpGet:
+            path: /
+            port: 8000
+          initialDelaySeconds: 20
+          periodSeconds: 10
+        livenessProbe: # Vérifie si l'application est toujours en bonne santé
+          httpGet:
+            path: /
+            port: 8000
+          initialDelaySeconds: 60
+          periodSeconds: 20
