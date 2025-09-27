@@ -1,9 +1,3 @@
-Absolument. Voici une proposition complète pour le fichier `README.md` de votre projet. Il est structuré pour être à la fois un guide technique et un support pour votre conférence.
-
-Vous pouvez copier-coller tout le contenu ci-dessous dans un nouveau fichier nommé `README.md` à la racine de votre projet.
-
------
-
 # k8s-rag-agent-gemma
 
 [](https://opensource.org/licenses/Apache-2.0)
